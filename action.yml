@@ -1,0 +1,167 @@
+name: 'Store Upload Action'
+description: 'Generates goldens, reframes screenshots with texts/devices, builds AAB/IPA, and publishes to stores'
+inputs:
+  screenshot_texts:
+    description: 'Array of text strings for reframing'
+    required: true
+    default: |
+      - "this sentence will show above the first screenshot"
+      - "this sentence will show above the second screenshot"
+      - "this sentence will show above the third screenshot"
+  google_service_account_path:
+    description: 'Google Play service account path'
+    required: true
+  track:
+    description: 'Google Play track'
+    required: true
+    default: 'production'
+  screenshot_background:
+    description: 'Screenshot background'
+    required: true
+    default: '#009688'
+  screenshot_ellipse:
+    description: 'Screenshot ellipse'
+    required: true
+    default: '#3F51B5'
+  screenshot_outline:
+    description: 'Screenshot outline'
+    required: true
+    default: '#009688'
+  apple_key_id:
+    description: 'Apple Key ID'
+    required: true
+  apple_p8_folder:
+    description: 'Apple .p8 private key folder'
+    required: true
+  apple_issuer_id:
+    description: 'Apple Issuer UUID'
+    required: true
+    default: 'pubspec.yaml'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run tests and generate goldens
+      shell: bash
+      run: flutter test --update-goldens
+
+    - name: Generate HTML page with screenshots
+      if: inputs.generate_html == 'true'
+      shell: bash
+      run: |
+          version=$(git describe --tags --always --dirty)
+          appName=$(awk -F'"' '/android:label=/{print $(NF-1)}' android/app/src/main/AndroidManifest.xml)
+          cat <<EOF >metadata/index.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>$appName @ $version</title>
+            </head>
+            <body>
+              <p>Built on $(TZ=America/Los_Angeles date) — $version</p>
+              <table>
+                <thead>
+                <tr>
+                  <th>device</th>
+          EOF
+            for f in en-US/images/phoneScreenshots/*; do
+              name=$(basename "$f" | sed s/.png//)
+              cat <<EOF >>metadata/index.html
+                  <th>$name</th>
+          EOF
+          
+            done
+            cat <<EOF >>metadata/index.html
+                </tr>
+                </thead>
+                <tbody>
+          EOF
+          
+            for d in en-US/images/*; do
+              device=$(basename "$d")
+              cat <<EOF >>metadata/index.html
+                <tr>
+                  <th>
+                    <p>$device</p>
+                  </th>
+          EOF
+              for img in "$d"/*.png; do
+                cat <<EOF >>metadata/index.html
+                  <td>
+                    <a href="$img"><img src="$img" style="width: 300px; text-align: center"/></a>
+                  </td>
+          EOF
+              done
+              cat <<EOF >>metadata/index.html
+                </tr>
+          EOF
+            done
+            cat <<EOF >>metadata/index.html
+              </table>
+            </body>
+          </html>
+          EOF
+
+    - name: Set up Python
+      shell: bash
+      run: |
+        python3 -m venv .venv
+        . .venv/bin/activate
+        pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/scripts/requirements.txt
+
+    - name: Reframe screenshots
+      shell: bash
+      run: |
+        mapfile -t strings < <(
+          printf '%s\n' "${{ inputs.screenshot_texts }}" \
+          | sed 's/^[[:space:]]*-[[:space:]]*//'
+        )
+
+        declare -A devices
+        devices['iphone.png']='iphoneScreenshots'
+        devices['pixel9proxl.png']='phoneScreenshots'
+        
+        for i in "${!strings[@]}"; do
+          for dev in "${!devices[@]}"; do
+            for f in metadata/en-US/images/"${devices[$dev]}"/"$i-"*.png; do
+              if [ -f "$f" ]; then
+                echo "Reframing $f into $dev for text #$i"
+                  .venv/bin/python ${{ github.action_path }}/scripts/reframe_screenshot.py \
+                  --font "${{ github.action_path }}/assets/Fredoka-Bold.ttf" \
+                  --background "${{ inputs.screenshot_background }}" \
+                  --ellipse "${{ inputs.screenshot_ellipse }}" \
+                  --outline "${{ inputs.screenshot_outline }}" \
+                  --screenshot "$f" \
+                  --device "${{ github.action_path }}/assets/$dev" \
+                  --text "${strings[$i]}"
+              fi
+            done
+          done
+        done
+
+    - name: Auto-detect package_name and bundle_id
+      id: detect-ids
+      shell: bash
+      run: |
+        PACKAGE_NAME=$(awk -F'"' '/\<applicationId\>/{print $(NF-1)}' android/app/build.gradle*)
+        if [ -z "$PACKAGE_NAME" ]; then PACKAGE_NAME="${{ inputs.package_name }}"; fi
+        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+        
+        BUNDLE_ID=$(awk '/\<PRODUCT_BUNDLE_IDENTIFIER\>/{gsub(/;/, "", $3); print $3; exit}' ios/Runner.xcodeproj/project.pbxproj)
+        if [ -z "$BUNDLE_ID" ]; then BUNDLE_ID="${{ inputs.bundle_id }}"; fi
+        echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
+
+    - name: Prepare credentials and publish
+      shell: bash
+      run: |
+        set -x
+        .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
+          --package_name "${{ steps.detect-ids.outputs.package_name }}" \
+          --service_account_json "${{ inputs.google_service_account_path }}" \
+          --track "${{ inputs.track }}" \
+          --bundle_id "${{ steps.detect-ids.outputs.bundle_id }}" \
+          --key_id "${{ inputs.apple_key_id }}" \
+          --p8_folder "${{ inputs.apple_p8_folder }}" \
+          --issuer_id "${{ inputs.apple_issuer_id }}"

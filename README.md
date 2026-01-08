@@ -52,8 +52,7 @@ easily set up your family members, schools, grades and avatars
 
 This will convert the screenshot into a device frame with the text inserted on top, with the font in the `assets/*.ttf` folder of that action repository:
 
-<img src="before.png" alt="golden screenshot" width="150">
-<img src="reframed.png" alt="reframed screenshot" width="150">
+<img src="before.png" alt="golden screenshot" width="150"> <img src="reframed.png" alt="reframed screenshot" width="150">
 
 This action will also build a `metadata/index.html` page with the screenshots displayed in a table.  
 You can then add the `metadata/` folder as an artifact to be saved/archived, or you can push this to an HTTP server to review what the screenshots look like.

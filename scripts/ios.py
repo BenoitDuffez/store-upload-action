@@ -19,7 +19,7 @@ def publish_ios(bundle_id: str, key_id: str, issuer_id: str, p8_folder: str, ver
     print("#########################################################")
     print("# iOS                                                   #")
     print("#########################################################")
-    return
+
     os.environ["API_PRIVATE_KEYS_DIR"] = os.path.relpath(p8_folder)
     ipa_path = build_ipa()
     upload_ipa_to_apple(ipa_path, key_id, issuer_id)

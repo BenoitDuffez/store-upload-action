@@ -13,7 +13,6 @@ def publish_android(package_name: str, service_account_json: str, phone_dir: str
     print("#########################################################")
     print("# Android                                               #")
     print("#########################################################")
-    return
 
     aab_path = build_aab()
     service, edit_id = start_edit(service_account_json, package_name)

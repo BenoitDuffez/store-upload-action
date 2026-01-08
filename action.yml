@@ -1,23 +1,16 @@
 name: 'Store Upload Action'
 description: 'Generates goldens, reframes screenshots with texts/devices, builds AAB/IPA, and publishes to stores'
 inputs:
-  google_service_account_path:
-    description: 'Google Play service account path'
-    required: true
-  track:
-    description: 'Google Play track'
-    required: true
-    default: 'production'
   screenshot_background:
-    description: 'Screenshot background'
+    description: 'Screenshot background color'
     required: true
     default: '#009688'
   screenshot_ellipse:
-    description: 'Screenshot ellipse'
+    description: 'Screenshot ellipse color'
     required: true
     default: '#3F51B5'
   screenshot_outline:
-    description: 'Screenshot outline'
+    description: 'Screenshot outline color'
     required: true
     default: '#009688'
   apple_key_id:
@@ -29,7 +22,14 @@ inputs:
   apple_issuer_id:
     description: 'Apple Issuer UUID'
     required: true
-    default: 'pubspec.yaml'
+    default: '00000000-0000-0000-0000-000000000000'
+  google_service_account_path:
+    description: 'Google Play service account path'
+    required: true
+  google_track:
+    description: 'Google Play track'
+    required: true
+    default: 'production'
 
 runs:
   using: 'composite'
@@ -140,7 +140,7 @@ runs:
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
           --package_name "${{ steps.detect-ids.outputs.package_name }}" \
           --service_account_json "${{ inputs.google_service_account_path }}" \
-          --track "${{ inputs.track }}" \
+          --track "${{ inputs.google_track }}" \
           --bundle_id "${{ steps.detect-ids.outputs.bundle_id }}" \
           --key_id "${{ inputs.apple_key_id }}" \
           --p8_folder "${{ inputs.apple_p8_folder }}" \

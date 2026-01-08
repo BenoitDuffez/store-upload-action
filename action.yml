@@ -111,7 +111,7 @@ runs:
           folder="metadata/en-US/images/$(basename "$dev" | sed s/.png//)"
           for screenshot in "${folder}/"*.png; do
             .venv/bin/python '${{ github.action_path }}/scripts/reframe_screenshot.py' \
-              --font '${{ github.action_path }}/assets/Fredoka-Bold.ttf' \
+              --font '${{ github.action_path }}/assets/'*.ttf \
               --background '${{ inputs.screenshot_background }}' \
               --ellipse '${{ inputs.screenshot_ellipse }}' \
               --outline '${{ inputs.screenshot_outline }}' \

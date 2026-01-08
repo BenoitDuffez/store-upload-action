@@ -1,7 +1,4 @@
 import argparse
-from pathlib import Path
-import io
-import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -116,6 +113,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    font = ImageFont.truetype(args.font, 140)
+    ttf = ImageFont.truetype(args.font, 140)
 
-    pipeline(args.screenshot, args.device, args.text, font, args.background, args.ellipse, args.outline)
+    pipeline(args.screenshot, args.device, args.text, ttf, args.background, args.ellipse, args.outline)

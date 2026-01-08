@@ -1,13 +1,6 @@
 name: 'Store Upload Action'
 description: 'Generates goldens, reframes screenshots with texts/devices, builds AAB/IPA, and publishes to stores'
 inputs:
-  screenshot_texts:
-    description: 'Array of text strings for reframing'
-    required: true
-    default: |
-      - "this sentence will show above the first screenshot"
-      - "this sentence will show above the second screenshot"
-      - "this sentence will show above the third screenshot"
   google_service_account_path:
     description: 'Google Play service account path'
     required: true
@@ -114,30 +107,17 @@ runs:
     - name: Reframe screenshots
       shell: bash
       run: |
-        mapfile -t strings < <(
-          printf '%s\n' "${{ inputs.screenshot_texts }}" \
-          | sed 's/^[[:space:]]*-[[:space:]]*//'
-        )
-
-        declare -A devices
-        devices['iphone.png']='iphoneScreenshots'
-        devices['pixel9proxl.png']='phoneScreenshots'
-        
-        for i in "${!strings[@]}"; do
-          for dev in "${!devices[@]}"; do
-            for f in metadata/en-US/images/"${devices[$dev]}"/"$i-"*.png; do
-              if [ -f "$f" ]; then
-                echo "Reframing $f into $dev for text #$i"
-                  .venv/bin/python ${{ github.action_path }}/scripts/reframe_screenshot.py \
-                  --font "${{ github.action_path }}/assets/Fredoka-Bold.ttf" \
-                  --background "${{ inputs.screenshot_background }}" \
-                  --ellipse "${{ inputs.screenshot_ellipse }}" \
-                  --outline "${{ inputs.screenshot_outline }}" \
-                  --screenshot "$f" \
-                  --device "${{ github.action_path }}/assets/$dev" \
-                  --text "${strings[$i]}"
-              fi
-            done
+        for dev in '${{ github.action_path }}/assets/'*.png; do
+          folder="metadata/en-US/images/$(basename "$dev" | sed s/.png//)"
+          for screenshot in "${folder}/"*.png; do
+            .venv/bin/python '${{ github.action_path }}/scripts/reframe_screenshot.py' \
+              --font '${{ github.action_path }}/assets/Fredoka-Bold.ttf' \
+              --background '${{ inputs.screenshot_background }}' \
+              --ellipse '${{ inputs.screenshot_ellipse }}' \
+              --outline '${{ inputs.screenshot_outline }}' \
+              --screenshot "$screenshot" \
+              --device "$dev" \
+              --text "$(cat metadata/en-US/images/$(basename "$f" | sed s/.png/.txt/))"
           done
         done
 

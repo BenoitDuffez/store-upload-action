@@ -125,23 +125,17 @@ runs:
       id: detect-ids
       shell: bash
       run: |
-        PACKAGE_NAME=$(awk -F'"' '/\<applicationId\>/{print $(NF-1)}' android/app/build.gradle*)
-        if [ -z "$PACKAGE_NAME" ]; then PACKAGE_NAME="${{ inputs.package_name }}"; fi
-        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-        
-        BUNDLE_ID=$(awk '/\<PRODUCT_BUNDLE_IDENTIFIER\>/{gsub(/;/, "", $3); print $3; exit}' ios/Runner.xcodeproj/project.pbxproj)
-        if [ -z "$BUNDLE_ID" ]; then BUNDLE_ID="${{ inputs.bundle_id }}"; fi
-        echo "bundle_id=$BUNDLE_ID" >> $GITHUB_OUTPUT
+        echo "PACKAGE_NAME=$(awk -F'"' '/\<applicationId\>/{print $(NF-1); exit}' android/app/build.gradle*)" >>$GITHUB_OUTPUT
+        echo "BUNDLE_ID=$(awk '/\<PRODUCT_BUNDLE_IDENTIFIER\>/{gsub(/;/, "", $3); print $3; exit}' ios/Runner.xcodeproj/project.pbxproj)" >>$GITHUB_OUTPUT
 
     - name: Prepare credentials and publish
       shell: bash
       run: |
-        set -x
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
-          --package_name "${{ steps.detect-ids.outputs.package_name }}" \
-          --service_account_json "${{ inputs.google_service_account_path }}" \
-          --track "${{ inputs.google_track }}" \
-          --bundle_id "${{ steps.detect-ids.outputs.bundle_id }}" \
-          --key_id "${{ inputs.apple_key_id }}" \
-          --p8_folder "${{ inputs.apple_p8_folder }}" \
-          --issuer_id "${{ inputs.apple_issuer_id }}"
+          --package_name          "${{ steps.detect-ids.outputs.package_name }}" \
+          --service_account_json  "${{ inputs.google_service_account_path }}" \
+          --track                 "${{ inputs.google_track }}" \
+          --bundle_id             "${{ steps.detect-ids.outputs.bundle_id }}" \
+          --key_id                "${{ inputs.apple_key_id }}" \
+          --p8_folder             "${{ inputs.apple_p8_folder }}" \
+          --issuer_id             "${{ inputs.apple_issuer_id }}"

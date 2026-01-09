@@ -1,12 +1,11 @@
 import mimetypes
 import os
-import subprocess
+from utils import execute
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
-
 
 def publish_android(package_name: str, service_account_json: str, phone_dir: str, tablet_dir: str, track: str,
                     locale: str, version_code: str) -> None:
@@ -14,9 +13,11 @@ def publish_android(package_name: str, service_account_json: str, phone_dir: str
     print("# Android                                               #")
     print("#########################################################")
 
-    aab_path = build_aab()
     service, edit_id = start_edit(service_account_json, package_name)
+
+    aab_path = build_aab()
     upload_aab(package_name, aab_path, service, edit_id)
+
     delete_all_screenshots(package_name, locale, service, edit_id)
     upload_screenshots(package_name, phone_dir, tablet_dir, locale, service, edit_id)
     commit(edit_id, package_name, service, track, version_code)
@@ -24,7 +25,7 @@ def publish_android(package_name: str, service_account_json: str, phone_dir: str
 
 def build_aab():
     print("Building AAB")
-    subprocess.run(["flutter", "build", "appbundle", "--release"], check=True)
+    execute(["flutter", "build", "appbundle", "--release"])
     return "build/app/outputs/bundle/release/app-release.aab"
 
 
@@ -44,17 +45,18 @@ def start_edit(service_account_json: str, package_name: str) -> tuple[Resource, 
 
 def upload_aab(package_name: str, aab_path: str, service: Resource, edit_id):
     # Upload AAB
-    print("Uploading aab to Google Play")
+    print(f"Uploading to Google Play: {package_name} from {aab_path} ({edit_id})")
     media = MediaFileUpload(aab_path, mimetype="application/octet-stream", resumable=True)
     try:
-        service.edits().bundles().upload(editId=edit_id, packageName=package_name, media_body=media).execute()
+        result = service.edits().bundles().upload(editId=edit_id, packageName=package_name, media_body=media).execute()
+        print(f"Uploaded to Google Play: {result}")
     except HttpError as error:
         print(f"An error occurred: {error}")
         return
 
 
 def delete_all_screenshots(package_name: str, locale: str, service: Resource, edit_id: str) -> None:
-    print("Deleting all existing screenshots")
+    print(f"Deleting all existing screenshots for {package_name} ({locale})")
     image_types = [
         "phoneScreenshots",
         "sevenInchScreenshots",

@@ -117,7 +117,7 @@ runs:
               --outline '${{ inputs.screenshot_outline }}' \
               --screenshot "$screenshot" \
               --device "$dev" \
-              --text "$(cat metadata/en-US/images/$(basename "$f" | sed s/.png/.txt/))"
+              --text "$(cat metadata/en-US/images/$(basename "$screenshot" | sed s/.png/.txt/))"
           done
         done
 

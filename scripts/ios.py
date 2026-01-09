@@ -5,7 +5,7 @@ import requests
 from typing import Dict
 import os, hashlib
 import glob
-import subprocess
+from utils import execute
 
 API_BASE = "https://api.appstoreconnect.apple.com/v1"
 POLL_WAIT = 0.5
@@ -38,19 +38,18 @@ def publish_ios(bundle_id: str, key_id: str, issuer_id: str, p8_folder: str, ver
 
 def build_ipa():
     print("Building IPA")
-    subprocess.run(["flutter", "build", "ipa", "--release"], check=True)
+    execute(["flutter", "build", "ipa", "--release"])
     return glob.glob("build/ios/ipa/*.ipa")[0]
 
 
 def upload_ipa_to_apple(ipa_path: str, api_key: str, api_issuer: str):
     print(f"Uploading IPA '{ipa_path}' to Apple")
-    subprocess.run(
+    execute(
         ["xcrun", "altool",
          "--upload-app", "-f", ipa_path,
          "--platform", "ios",
          "--apiKey", api_key,
-         "--apiIssuer", api_issuer],
-        check=True)
+         "--apiIssuer", api_issuer])
 
 
 def generate_jwt(key_id: str, issuer_id: str, p8_path: str) -> str:

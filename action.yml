@@ -1,6 +1,10 @@
 name: 'Store Upload Action'
 description: 'Generates goldens, reframes screenshots with texts/devices, builds AAB/IPA, and publishes to stores'
 inputs:
+  timezone:
+    description: 'Used to set the timestamp on top of the screenshots page'
+    required: false
+    default: 'America/Los_Angeles'
   screenshot_background:
     description: 'Screenshot background color'
     required: true
@@ -34,6 +38,20 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Auto-detect app identifiers
+      id: detect-ids
+      shell: bash
+      run: |
+        APP_NAME=$(awk -F'"' '/android:label=/{print $(NF-1)}' android/app/src/main/AndroidManifest.xml)
+        if echo "$APP_NAME" | grep -qE '^\$'; then
+          APP_NAME=$(awk -F'"' '/'"$(echo "$APP_NAME" | tr -d '${}')"'/{print $(NF-1);exit}' android/app/build.gradle*)
+        fi
+        
+        echo "APP_VERSION=$(git describe --tags --always --dirty)" >>$GITHUB_ENV
+        echo "APP_NAME=$APP_NAME" >>$GITHUB_ENV
+        echo "PACKAGE_NAME=$(${{ github.action_path }}/get_application_id.awk android/app/build.gradle*)" >>$GITHUB_ENV
+        echo "IOS_BUNDLE_ID=$(${{ github.action_path }}/get_bundle_id.awk ios/Runner.xcodeproj/project.pbxproj)" >>$GITHUB_ENV
+
     - name: Run tests and generate goldens
       shell: bash
       run: flutter test --update-goldens
@@ -42,55 +60,53 @@ runs:
       if: inputs.generate_html == 'true'
       shell: bash
       run: |
-          version=$(git describe --tags --always --dirty)
-          appName=$(awk -F'"' '/android:label=/{print $(NF-1)}' android/app/src/main/AndroidManifest.xml)
           cat <<EOF >metadata/index.html
           <!DOCTYPE html>
           <html>
             <head>
               <meta charset="utf-8" />
-              <title>$appName @ $version</title>
+              <title>${{ env.APP_NAME }} @ ${{ env.APP_VERSION }}</title>
             </head>
             <body>
-              <p>Built on $(TZ=America/Los_Angeles date) — $version</p>
+              <p>Built on $(TZ=${{ inputs.TZ }} date) — $version</p>
               <table>
                 <thead>
                 <tr>
                   <th>device</th>
           EOF
-            for f in en-US/images/phoneScreenshots/*; do
-              name=$(basename "$f" | sed s/.png//)
-              cat <<EOF >>metadata/index.html
+          for f in en-US/images/phoneScreenshots/*; do
+            name=$(basename "$f" | sed s/.png//)
+            cat <<EOF >>metadata/index.html
                   <th>$name</th>
           EOF
           
-            done
-            cat <<EOF >>metadata/index.html
+          done
+          cat <<EOF >>metadata/index.html
                 </tr>
                 </thead>
                 <tbody>
           EOF
           
-            for d in en-US/images/*; do
-              device=$(basename "$d")
-              cat <<EOF >>metadata/index.html
+          for d in en-US/images/*; do
+            device=$(basename "$d")
+            cat <<EOF >>metadata/index.html
                 <tr>
                   <th>
                     <p>$device</p>
                   </th>
           EOF
-              for img in "$d"/*.png; do
-                cat <<EOF >>metadata/index.html
+            for img in "$d"/*.png; do
+              cat <<EOF >>metadata/index.html
                   <td>
                     <a href="$img"><img src="$img" style="width: 300px; text-align: center"/></a>
                   </td>
           EOF
-              done
-              cat <<EOF >>metadata/index.html
-                </tr>
-          EOF
             done
             cat <<EOF >>metadata/index.html
+                </tr>
+          EOF
+          done
+          cat <<EOF >>metadata/index.html
               </table>
             </body>
           </html>
@@ -121,21 +137,14 @@ runs:
           done
         done
 
-    - name: Auto-detect package_name and bundle_id
-      id: detect-ids
-      shell: bash
-      run: |
-        echo "PACKAGE_NAME=$(awk -F'"' '/\<applicationId\>/{print $(NF-1); exit}' android/app/build.gradle*)" >>$GITHUB_OUTPUT
-        echo "BUNDLE_ID=$(awk '/\<PRODUCT_BUNDLE_IDENTIFIER\>/{gsub(/;/, "", $3); print $3; exit}' ios/Runner.xcodeproj/project.pbxproj)" >>$GITHUB_OUTPUT
-
     - name: Prepare credentials and publish
       shell: bash
       run: |
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
-          --package_name          "${{ steps.detect-ids.outputs.package_name }}" \
+          --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \
           --track                 "${{ inputs.google_track }}" \
-          --bundle_id             "${{ steps.detect-ids.outputs.bundle_id }}" \
+          --bundle_id             "${{ env.ios_bundle_id }}" \
           --key_id                "${{ inputs.apple_key_id }}" \
           --p8_folder             "${{ inputs.apple_p8_folder }}" \
           --issuer_id             "${{ inputs.apple_issuer_id }}"

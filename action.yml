@@ -40,7 +40,6 @@ runs:
   steps:
     - name: Auto-detect app identifiers
       id: detect-ids
-      shell: bash
       run: |
         APP_NAME=$(awk -F'"' '/android:label=/{print $(NF-1)}' android/app/src/main/AndroidManifest.xml)
         if echo "$APP_NAME" | grep -qE '^\$'; then
@@ -53,12 +52,10 @@ runs:
         echo "IOS_BUNDLE_ID=$(${{ github.action_path }}/get_bundle_id.awk ios/Runner.xcodeproj/project.pbxproj)" >>$GITHUB_ENV
 
     - name: Run tests and generate goldens
-      shell: bash
       run: flutter test --update-goldens
 
     - name: Generate HTML page with screenshots
       if: inputs.generate_html == 'true'
-      shell: bash
       run: |
           cat <<EOF >metadata/index.html
           <!DOCTYPE html>
@@ -113,7 +110,6 @@ runs:
           EOF
 
     - name: Set up Python
-      shell: bash
       run: |
         python3 -m venv .venv
         . .venv/bin/activate
@@ -121,7 +117,6 @@ runs:
         pip install -r ${{ github.action_path }}/scripts/requirements.txt
 
     - name: Reframe screenshots
-      shell: bash
       run: |
         for dev in '${{ github.action_path }}/assets/'*.png; do
           folder="metadata/en-US/images/$(basename "$dev" | sed s/.png//)"
@@ -138,7 +133,6 @@ runs:
         done
 
     - name: Prepare credentials and publish
-      shell: bash
       run: |
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
           --package_name          "${{ env.package_name }}" \

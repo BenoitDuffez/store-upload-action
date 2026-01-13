@@ -1,5 +1,5 @@
 import argparse
-import os
+from pathlib import Path
 import yaml
 
 from android import publish_android
@@ -42,12 +42,12 @@ if __name__ == "__main__":
     version = parse_pubspec_version('pubspec.yaml')['name']
     version_code = parse_pubspec_version('pubspec.yaml')['code']
 
-    if args.package_name is not None:
+    if args.package_name is not None and Path(args.package_name).is_file():
         publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
                         args.locale, version_code)
         print("----------------------------------------------------")
 
-    if args.bundle_id is not None:
+    if args.bundle_id is not None and Path(f"{args.p8_folder}/AuthKey_{args.bundle_id}.p8").is_file():
         publish_ios(args.bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, args.iphone_dir, args.ipad_dir,
                     args.locale)
         print("----------------------------------------------------")

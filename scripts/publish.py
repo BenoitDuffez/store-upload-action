@@ -46,8 +46,13 @@ if __name__ == "__main__":
         publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
                         args.locale, version_code)
         print("----------------------------------------------------")
+    else:
+        print(f"Skipping Google Play publishing: no package ({args.package_name}) or no credentials ({args.service_account_json})")
 
-    if args.bundle_id is not None and Path(f"{args.p8_folder}/AuthKey_{args.bundle_id}.p8").is_file():
+    p8 = f"{args.p8_folder}/AuthKey_{args.bundle_id}.p8"
+    if args.bundle_id is not None and Path(p8).is_file():
         publish_ios(args.bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, args.iphone_dir, args.ipad_dir,
                     args.locale)
         print("----------------------------------------------------")
+    else:
+        print(f"Skipping Apple Store publishing: no Bundle ID ({args.bundle_id}) or no credentials ({p8})")

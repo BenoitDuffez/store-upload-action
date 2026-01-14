@@ -123,6 +123,7 @@ runs:
 
     - name: Reframe screenshots
       run: |
+        set -x
         for dev in '${{ github.action_path }}/assets/'*.png; do
           folder="metadata/en-US/images/$(basename "$dev" | sed s/.png//)"
           for screenshot in "${folder}/"*.png; do
@@ -137,8 +138,9 @@ runs:
           done
         done
 
-    - name: Prepare credentials and publish
+    - name: Publish on stores
       run: |
+        set -x
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
           --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \

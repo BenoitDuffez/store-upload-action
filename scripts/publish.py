@@ -49,7 +49,7 @@ if __name__ == "__main__":
     else:
         print(f"Skipping Google Play publishing: no package ({args.package_name}) or no credentials ({args.service_account_json})")
 
-    p8 = f"{args.p8_folder}/AuthKey_{args.bundle_id}.p8"
+    p8 = f"{args.p8_folder}/AuthKey_{args.key_id}.p8"
     if args.bundle_id is not None and Path(p8).is_file():
         publish_ios(args.bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, args.iphone_dir, args.ipad_dir,
                     args.locale)

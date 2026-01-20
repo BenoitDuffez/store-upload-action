@@ -42,17 +42,25 @@ if __name__ == "__main__":
     version = parse_pubspec_version('pubspec.yaml')['name']
     version_code = parse_pubspec_version('pubspec.yaml')['code']
 
-    if args.package_name is not None and Path(args.package_name).is_file():
+    # Android
+    if args.package_name is None:
+        print(f"Skipping Google Play publishing: no package ({args.package_name})")
+
+    elif not Path(args.package_name).is_file():
+        print(f"Skipping Google Play publishing: no credentials ({args.service_account_json})")
+
+    else:
         publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
                         args.locale, version_code)
-        print("----------------------------------------------------")
-    else:
-        print(f"Skipping Google Play publishing: no package ({args.package_name}) or no credentials ({args.service_account_json})")
 
+    # iOS
     p8 = f"{args.p8_folder}/AuthKey_{args.key_id}.p8"
-    if args.bundle_id is not None and Path(p8).is_file():
+    if args.bundle_id is None:
+        print(f"Skipping Apple Store publishing: no Bundle ID ({args.bundle_id})")
+
+    elif not Path(p8).is_file():
+        print(f"Skipping Apple Store publishing: no credentials ({p8})")
+
+    else:
         publish_ios(args.bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, args.iphone_dir, args.ipad_dir,
                     args.locale)
-        print("----------------------------------------------------")
-    else:
-        print(f"Skipping Apple Store publishing: no Bundle ID ({args.bundle_id}) or no credentials ({p8})")

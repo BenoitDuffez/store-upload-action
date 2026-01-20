@@ -1,4 +1,5 @@
 import argparse
+import os
 from pathlib import Path
 import yaml
 
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     if args.package_name is None:
         print(f"Skipping Google Play publishing: no package ({args.package_name})")
 
-    elif not Path(args.package_name).is_file():
+    elif not Path(args.service_account_json).is_file():
         print(f"Skipping Google Play publishing: no credentials ({args.service_account_json})")
 
     else:

@@ -209,7 +209,7 @@ def clear_screenshot_set(set_id: str, headers: Dict, poll_retries: int = POLL_RE
         raise RuntimeError(f"Timed out waiting for screenshot set {set_id} to be cleared (remaining: {len(snaps)})")
 
 
-def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict):
+def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict, attempts=5):
     file_name = os.path.basename(file_path)
     file_size = os.path.getsize(file_path)
     with open(file_path, "rb") as f:
@@ -227,7 +227,18 @@ def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict):
         }
     }
     response = requests.post(f"{API_BASE}/appScreenshots", json=body, headers=headers)
-    response.raise_for_status()
+    if 500 <= response.status_code < 600:
+        print(f"Failed to upload screenshot {set_id} to Apple with HTTP {response.status_code}:")
+        print(response.text)
+
+        if attempts > 0:
+            print("Try again in a bit...")
+            time.sleep(30 - 5 * attempts)
+            upload_screenshot_to_apple(set_id, file_path, headers, attempts - 1)
+        else:
+            print("Failed to upload screenshot too many times in a row, abort!")
+            response.raise_for_status()
+
     res_data = response.json()["data"]
     screenshot_id = res_data["id"]
     upload_ops = res_data["attributes"]["uploadOperations"]

@@ -63,6 +63,7 @@ runs:
 
     - name: Run tests and generate goldens
       run: |
+        cd "${{ inputs.path }}"
         flutter test --update-goldens
         cd "${{ inputs.path }}"
 

@@ -45,7 +45,7 @@ runs:
     - name: Auto-detect app identifiers
       id: detect-ids
       run: |
-        cd "${{ inputs.path }}"
+        cd "${{ github.workspace }}/${{ inputs.path }}"
         APP_NAME=$(awk -F'"' '/android:label=/{print $(NF-1)}' android/app/src/main/AndroidManifest.xml)
         if echo "$APP_NAME" | grep -qE '^\$'; then
           APP_NAME=$(awk -F'"' '/'"$(echo "$APP_NAME" | tr -d '${}')"'/{print $(NF-1);exit}' android/app/build.gradle*)
@@ -63,13 +63,12 @@ runs:
 
     - name: Run tests and generate goldens
       run: |
-        cd "${{ inputs.path }}"
+        cd "${{ github.workspace }}/${{ inputs.path }}"
         flutter test --update-goldens
-        cd "${{ inputs.path }}"
 
     - name: Set up Python
       run: |
-        cd "${{ inputs.path }}"
+        cd "${{ github.workspace }}/${{ inputs.path }}"
         python3 -m venv .venv
         . .venv/bin/activate
         pip install --upgrade pip
@@ -78,7 +77,7 @@ runs:
     - name: Reframe screenshots
       run: |
         set -x
-        cd "${{ inputs.path }}"
+        cd "${{ github.workspace }}/${{ inputs.path }}"
         for dev in '${{ github.action_path }}/assets/'*.png; do
           folder="metadata/en-US/images/$(basename "$dev" | sed s/.png//)"
           for screenshot in "${folder}/"*.png; do
@@ -96,7 +95,7 @@ runs:
     - name: Publish on stores
       run: |
         set -x
-        cd "${{ inputs.path }}"
+        cd "${{ github.workspace }}/${{ inputs.path }}"
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
           --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \

@@ -10,5 +10,8 @@ def execute(args):
 
         return logs
     except subprocess.CalledProcessError as e:
-        print(f"  Failed: {e}")
+        print(f"  Failed: {e}, returncode: {e.returncode}")
+        print(f"  stdout: {e.stdout.decode('utf8')}")
+        print(f"  stderr: {e.stderr.decode('utf8')}")
+
         raise e

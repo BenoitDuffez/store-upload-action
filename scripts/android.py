@@ -7,6 +7,7 @@ from googleapiclient.discovery import build, Resource
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+
 def publish_android(package_name: str, service_account_json: str, phone_dir: str, tablet_dir: str, track: str,
                     locale: str, version_code: str) -> None:
     print("#########################################################")
@@ -122,4 +123,4 @@ def commit(edit_id: str, package_name: str, service: Resource, track: str, versi
         "releases": [{"versionCodes": [version_code], "status": "completed"}]
     }
     service.edits().tracks().update(editId=edit_id, track=track, packageName=package_name, body=track_body).execute()
-    service.edits().commit(editId=edit_id, packageName=package_name).execute()
+    service.edits().commit(editId=edit_id, packageName=package_name, changesNotSentForReview=True).execute()

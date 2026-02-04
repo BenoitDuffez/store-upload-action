@@ -100,8 +100,11 @@ def add_screenshot_and_frame(img, app_screenshot, device_frame, is_landscape: bo
 
 
 # Text overlay
-def wrapped_text(draw, text, font):
-    max_w = 1200
+def wrapped_text(draw, text, font, is_landscape: bool):
+    if is_landscape:
+        max_w = 2000
+    else:
+        max_w = 1200
     lines = []
     words = text.split()
     current = ""
@@ -118,7 +121,7 @@ def wrapped_text(draw, text, font):
 
 
 def draw_text(draw, text, outline: str, font, is_landscape: bool):
-    wrapped = wrapped_text(draw, text, font)
+    wrapped = wrapped_text(draw, text, font, is_landscape)
 
     if is_landscape:
         w, h = lw, lh

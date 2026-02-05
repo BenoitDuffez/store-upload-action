@@ -23,6 +23,8 @@ def publish_android(package_name: str, service_account_json: str, phone_dir: str
     upload_screenshots(package_name, phone_dir, tablet_dir, locale, service, edit_id)
     commit(edit_id, package_name, service, track, version_code)
 
+    print("Android publication complete, check the Play Console if you need to submit the changes for review.")
+
 
 def build_aab():
     print("Building AAB")
@@ -131,3 +133,4 @@ def commit(edit_id: str, package_name: str, service: Resource, track: str, versi
         print(f"Error: {e}")
         print("Try again without changesNotSentForReview")
         service.edits().commit(editId=edit_id, packageName=package_name).execute()
+        print("It worked without changesNotSentForReview!")

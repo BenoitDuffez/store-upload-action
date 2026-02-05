@@ -1,10 +1,10 @@
 import argparse
-import os
+import sys
 from pathlib import Path
 import yaml
 
 from android import publish_android
-from ios import publish_ios
+from apple import publish_ios, publish_macos
 
 
 def parse_pubspec_version(pubspec_path: str) -> dict:
@@ -25,8 +25,9 @@ if __name__ == "__main__":
     parser.add_argument("--tablet_dir", default="./metadata/en-US/images/macbookScreenshots",
                         help="Android tablet screenshots dir")
 
-    # ios options
-    parser.add_argument("--bundle_id", help="iOS bundle ID")
+    # apple options
+    parser.add_argument("--ios_bundle_id", help="iOS bundle ID")
+    parser.add_argument("--macos_bundle_id", help="macOS bundle ID")
     parser.add_argument("--key_id", help="Apple API key ID")
     parser.add_argument("--issuer_id", help="Apple issuer ID")
     parser.add_argument("--p8_folder", help="Apple .p8 directory path")
@@ -34,6 +35,9 @@ if __name__ == "__main__":
                         help="iOS iPhone screenshots dir (e.g., 6.5 inch)")
     parser.add_argument("--ipad_dir", default="./metadata/en-US/images/ipadScreenshots",
                         help="iOS iPad screenshots dir (e.g., 12.9 inch)")
+    parser.add_argument("--macos_dir", default="./metadata/en-US/images/macbookScreenshots",
+                        help="MacBook screenshots dir (e.g., 14 inch)")
+    parser.add_argument("--macos_cert", help="macOS Apple '3rd Party Mac Developer Installer' certificate name")
 
     # common options
     parser.add_argument("--locale", default="en-US", help="Locale for metadata")
@@ -43,6 +47,8 @@ if __name__ == "__main__":
     version = parse_pubspec_version('pubspec.yaml')['name']
     version_code = parse_pubspec_version('pubspec.yaml')['code']
 
+    exceptions = []
+
     # Android
     if args.package_name is None:
         print(f"Skipping Google Play publishing: no package ({args.package_name})")
@@ -51,17 +57,42 @@ if __name__ == "__main__":
         print(f"Skipping Google Play publishing: no credentials ({args.service_account_json})")
 
     else:
-        publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
-                        args.locale, version_code)
+        try:
+            publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
+                            args.locale, version_code)
+        except Exception as e:
+            print(f"Failed Google Play publishing: {e}")
+            exceptions.append(e)
 
-    # iOS
+    # Apple
     p8 = f"{args.p8_folder}/AuthKey_{args.key_id}.p8"
-    if args.bundle_id is None:
-        print(f"Skipping Apple Store publishing: no Bundle ID ({args.bundle_id})")
-
-    elif not Path(p8).is_file():
+    if not Path(p8).is_file():
         print(f"Skipping Apple Store publishing: no credentials ({p8})")
-
     else:
-        publish_ios(args.bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, args.iphone_dir, args.ipad_dir,
-                    args.locale)
+        if args.ios_bundle_id is None:
+            print(f"Skipping iOS App Store publishing: no Bundle ID ({args.ios_bundle_id})")
+
+        else:
+            try:
+                publish_ios(args.ios_bundle_id, args.key_id, args.issuer_id, args.p8_folder, version,
+                            [args.iphone_dir, args.ipad_dir], args.locale)
+            except Exception as e:
+                print(f"Failed iOS App Store publishing: {e}")
+                exceptions.append(e)
+
+        if args.macos_bundle_id is None:
+            print(f"Skipping macOS App Store publishing: no Bundle ID ({args.macos_bundle_id})")
+
+        else:
+            try:
+                publish_macos(args.macos_bundle_id, args.key_id, args.issuer_id, args.p8_folder, version, [args.macos_dir],
+                              args.macos_cert, args.locale)
+            except Exception as e:
+                print(f"Failed macOS App Store publishing: {e}")
+                exceptions.append(e)
+
+    if len(exceptions) > 0:
+        print("Errors happened!")
+        for e in exceptions:
+            print(e)
+        sys.exit(1)

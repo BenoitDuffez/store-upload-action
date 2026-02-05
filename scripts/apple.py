@@ -2,7 +2,6 @@ import time
 
 import jwt
 import requests
-from typing import Dict
 import os, hashlib
 import glob
 from utils import execute
@@ -11,26 +10,49 @@ API_BASE = "https://api.appstoreconnect.apple.com/v1"
 POLL_WAIT = 0.5
 POLL_RETRIES = 10
 
+headers: dict[str, str] = {}
+
 
 ########################################################################################################################
 
-def publish_ios(bundle_id: str, key_id: str, issuer_id: str, p8_folder: str, version: str, iphone_dir: str,
-                ipad_dir: str, locale: str) -> None:
+def publish_ios(bundle_id: str, key_id: str, issuer_id: str, p8_folder: str, version: str, dirs: list[str],
+                locale: str) -> None:
     print("#########################################################")
     print("# iOS                                                   #")
     print("#########################################################")
 
     os.environ["API_PRIVATE_KEYS_DIR"] = os.path.relpath(p8_folder)
+    generate_auth_headers(key_id, issuer_id, f"{p8_folder}/AuthKey_{key_id}.p8")
+
     ipa_path = build_ipa()
     upload_ipa_to_apple(ipa_path, key_id, issuer_id)
 
-    jwt_token = generate_jwt(key_id, issuer_id, f"{p8_folder}/AuthKey_{key_id}.p8")
-    headers = {"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"}
-    app_id = get_app_id(bundle_id, headers)
-    version_id = get_or_create_version(app_id, version, headers, "IOS")
-    upload_screenshots_to_apple(version_id, iphone_dir, ipad_dir, locale, jwt_token)
+    app_id = get_app_id(bundle_id)
+    version_id = get_or_create_version(app_id, version, "IOS")
+    upload_screenshots_to_apple(version_id, dirs, locale)
 
-    print("iOS builds were uploaded, but they will not appear directly in AppStore Connect")
+    print("iOS build was uploaded, but it will not appear directly in AppStore Connect")
+    print("Wait for the confirmation email before you can submit the app for approval from Apple")
+
+
+def publish_macos(bundle_id: str, key_id: str, issuer_id: str, p8_folder: str, version: str, dirs: list[str],
+                  cert: str, locale: str) -> None:
+    print("#########################################################")
+    print("# macOS                                                 #")
+    print("#########################################################")
+
+    os.environ["API_PRIVATE_KEYS_DIR"] = os.path.relpath(p8_folder)
+    generate_auth_headers(key_id, issuer_id, f"{p8_folder}/AuthKey_{key_id}.p8")
+    app_id = get_app_id(bundle_id)
+
+    app_path = build_app()
+    pkg_path = build_pkg(app_path, cert)
+    upload_app_to_apple(pkg_path, key_id, issuer_id)
+
+    version_id = get_or_create_version(app_id, version, "MAC_OS")
+    upload_screenshots_to_apple(version_id, dirs, locale)
+
+    print("macOS builds were uploaded, but they will not appear directly in AppStore Connect")
     print("Wait for the confirmation email before you can submit the app for approval from Apple")
 
 
@@ -52,28 +74,72 @@ def upload_ipa_to_apple(ipa_path: str, api_key: str, api_issuer: str):
          "--apiIssuer", api_issuer])
 
 
-def generate_jwt(key_id: str, issuer_id: str, p8_path: str) -> str:
+def build_app():
+    print("Building app")
+    execute(["flutter", "build", "macos", "--release"])
+    app_path = glob.glob("build/macos/Build/Products/Release/*.app")[0]
+
+    print(f"Built app '{app_path}', now patch objective_c Resources symlink")
+    execute(["bash", "-c", "cd build/macos/Build/Products/Release/*.app/Contents/Frameworks/objective_c.framework; "
+             + "ln -fs Versions/Current/Resources"])
+
+    return app_path
+
+
+def build_pkg(app_path: str, cert: str):
+    print("Building pkg")
+    name = "build/macos/Build/Products/Release/" + str(os.path.basename(app_path)).replace(".app", ".pkg")
+    execute(["xcrun", "productbuild",
+             "--component", app_path,
+             "/Applications",
+             "--sign", cert,
+             name])
+    print(f"Built pkg '{name}'")
+    return name
+
+
+def upload_app_to_apple(app_path: str, api_key: str, api_issuer: str):
+    print(f"Uploading app '{app_path}' to Apple")
+    logs = execute(
+        ["xcrun", "altool",
+         "--upload-app",
+         "-f", app_path,
+         "--platform", "macos",
+         "--apiKey", api_key,
+         "--apiIssuer", api_issuer])
+    if "Failed to upload package" in logs:
+        print("Failed to upload the app to Apple:")
+        print(logs)
+        raise Exception("Failed to upload the app to Apple")
+
+
+def generate_auth_headers(key_id: str, issuer_id: str, p8_path: str):
+    global headers
+    if "Authorization" in headers:
+        return
+
     print("Generating JWT for Apple")
     with open(p8_path, "r") as f:
         private_key = f.read()
     header = {"alg": "ES256", "kid": key_id, "typ": "JWT"}
     payload = {"iss": issuer_id, "exp": int(time.time() + 1200), "aud": "appstoreconnect-v1"}
-    return jwt.encode(payload, private_key, algorithm="ES256", headers=header)
+    token = jwt.encode(payload, private_key, algorithm="ES256", headers=header)
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
-def get_app_id(bundle_id: str, headers: Dict) -> str:
+def get_app_id(bundle_id: str) -> str:
     print("Getting App ID")
     response = requests.get(f"{API_BASE}/apps?filter[bundleId]={bundle_id}", headers=headers)
     response.raise_for_status()
     return response.json()["data"][0]["id"]
 
 
-def get_or_create_version(app_id: str, version: str, headers: Dict, platform: str) -> str:
+def get_or_create_version(app_id: str, version: str, platform: str) -> str:
     print(f"Getting/creating Apple Version from App ID '{app_id}' / Version '{version}'")
 
     # Check existing
-    response = requests.get(f"{API_BASE}/apps/{app_id}/appStoreVersions",
-                            headers=headers)
+    response = requests.get(f"{API_BASE}/apps/{app_id}/appStoreVersions", headers=headers)
     response.raise_for_status()
     json = response.json()
     print(f"get existing? {json}")
@@ -106,7 +172,7 @@ def get_or_create_version(app_id: str, version: str, headers: Dict, platform: st
 
 ########################################################################################################################
 
-def get_localization(version_id: str, locale: str, headers: Dict) -> str:
+def get_localization(version_id: str, locale: str) -> str:
     response = requests.get(
         f"{API_BASE}/appStoreVersions/{version_id}/appStoreVersionLocalizations?filter[locale]={locale}",
         headers=headers)
@@ -127,7 +193,7 @@ def get_localization(version_id: str, locale: str, headers: Dict) -> str:
     return response.json()["data"]["id"]
 
 
-def get_screenshot_set(loc_id: str, display_type: str, headers: Dict) -> str | None:
+def get_screenshot_set(loc_id: str, display_type: str) -> str | None:
     url = f"{API_BASE}/appStoreVersionLocalizations/{loc_id}/appScreenshotSets"
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
@@ -143,7 +209,7 @@ def get_screenshot_set(loc_id: str, display_type: str, headers: Dict) -> str | N
     return None
 
 
-def create_screenshot_set(loc_id: str, display_type: str, headers: Dict) -> str:
+def create_screenshot_set(loc_id: str, display_type: str) -> str:
     body = {
         "data": {
             "type": "appScreenshotSets",
@@ -161,55 +227,58 @@ def create_screenshot_set(loc_id: str, display_type: str, headers: Dict) -> str:
     return response.json()["data"]["id"]
 
 
-def get_or_create_screenshot_set(loc_id: str, display_type: str, headers: Dict) -> str:
-    existing = get_screenshot_set(loc_id, display_type, headers)
+def get_or_create_screenshot_set(loc_id: str, display_type: str) -> str:
+    print(f"Create/get screenshot set for locale '{loc_id}' and display '{display_type}'")
+    existing = get_screenshot_set(loc_id, display_type)
     if existing:
         return existing
 
     # Try to create; if we get 409, re-fetch (race or existing)
     try:
-        return create_screenshot_set(loc_id, display_type, headers)
+        return create_screenshot_set(loc_id, display_type)
     except requests.exceptions.HTTPError as e:
         resp = getattr(e, "response", None)
         if resp is not None and resp.status_code == 409:
             # another source created it — re-fetch and return id
-            existing = get_screenshot_set(loc_id, display_type, headers)
+            existing = get_screenshot_set(loc_id, display_type)
             if existing:
                 return existing
             # if still None, raise original error for debugging
         raise
 
 
-def list_screenshots_in_set(set_id: str, headers: Dict) -> list:
+def list_screenshots_in_set(set_id: str) -> list:
     url = f"{API_BASE}/appScreenshotSets/{set_id}/appScreenshots"
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     return resp.json().get("data", [])
 
 
-def clear_screenshot_set(set_id: str, headers: Dict, poll_retries: int = POLL_RETRIES, poll_wait: float = POLL_WAIT):
+def clear_screenshot_set(set_id: str, poll_retries: int = POLL_RETRIES, poll_wait: float = POLL_WAIT):
+    print(f"Clear screenshots in set '{set_id}")
+
     # delete each screenshot found, then poll until empty (or timeout)
-    snaps = list_screenshots_in_set(set_id, headers)
+    snaps = list_screenshots_in_set(set_id)
     for shot in snaps:
         shot_id = shot["id"]
         del_url = f"{API_BASE}/appScreenshots/{shot_id}"
-        print(f"Deleting screenshot {shot_id} in set {set_id}")
+        print(f"Deleting screenshot '{shot_id}' in set '{set_id}'")
         d = requests.delete(del_url, headers=headers)
         d.raise_for_status()
 
     # poll until empty
     for i in range(poll_retries):
-        snaps = list_screenshots_in_set(set_id, headers)
+        snaps = list_screenshots_in_set(set_id)
         if not snaps:
             return
         time.sleep(poll_wait)
     # final check, if still not empty raise
-    snaps = list_screenshots_in_set(set_id, headers)
+    snaps = list_screenshots_in_set(set_id)
     if snaps:
-        raise RuntimeError(f"Timed out waiting for screenshot set {set_id} to be cleared (remaining: {len(snaps)})")
+        raise RuntimeError(f"Timed out waiting for screenshot set '{set_id}' to be cleared (remaining: {len(snaps)})")
 
 
-def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict, attempts=5):
+def upload_screenshot_to_apple(set_id: str, file_path: str, attempts=5):
     file_name = os.path.basename(file_path)
     file_size = os.path.getsize(file_path)
     with open(file_path, "rb") as f:
@@ -234,7 +303,7 @@ def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict, attem
         if attempts > 0:
             print("Try again in a bit...")
             time.sleep(30 - 5 * attempts)
-            upload_screenshot_to_apple(set_id, file_path, headers, attempts - 1)
+            upload_screenshot_to_apple(set_id, file_path, attempts - 1)
         else:
             print("Failed to upload screenshot too many times in a row, abort!")
             response.raise_for_status()
@@ -264,37 +333,34 @@ def upload_screenshot_to_apple(set_id: str, file_path: str, headers: Dict, attem
     requests.patch(f"{API_BASE}/appScreenshots/{screenshot_id}", json=body, headers=headers).raise_for_status()
 
 
-def upload_screenshots_to_apple(version_id: str, iphone_dir: str, ipad_dir: str, locale: str, jwt_token: str):
-    headers = {"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"}
-    loc_id = get_localization(version_id, locale, headers)
+def upload_screenshots_to_apple(version_id: str, dirs: list[str], locale: str):
+    loc_id = get_localization(version_id, locale)
 
-    print("Working on iPhone screenshots for version", version_id)
-    if os.path.exists(iphone_dir):
-        display_type = "APP_IPHONE_67"
-        # find or create (handles 409)
-        set_id = get_or_create_screenshot_set(loc_id, display_type, headers)
+    for screenshots_dir in dirs:
+        print(f"Working on screenshots for version {version_id} in {screenshots_dir}:")
 
-        # clear set (delete all existing screenshots then wait until empty)
-        clear_screenshot_set(set_id, headers)
+        if os.path.exists(screenshots_dir):
+            if "iphone" in screenshots_dir:
+                display_type = "APP_IPHONE_67"
+            elif "ipad" in screenshots_dir:
+                display_type = "APP_IPAD_PRO_3GEN_129"
+            elif "macbook" in screenshots_dir:
+                display_type = "APP_DESKTOP"
+            else:
+                raise ValueError(f"Unknown device type in {screenshots_dir}")
+            print(f"Using display_type={display_type} for folder {screenshots_dir}")
 
-        # upload files in deterministic order if you care about ordering
-        files = [f for f in os.listdir(iphone_dir) if f.lower().endswith((".png", ".jpg"))]
-        files.sort()
-        for file in files:
-            print(f"Uploading screenshot: {file}")
-            upload_screenshot_to_apple(set_id, os.path.join(iphone_dir, file), headers)
-    else:
-        print(f"No iPhone screenshots found at {iphone_dir}")
+            # find or create (handles 409)
+            set_id = get_or_create_screenshot_set(loc_id, display_type)
 
-    print("Working on iPad screenshots for version", version_id)
-    if os.path.exists(ipad_dir):
-        display_type = "APP_IPAD_PRO_3GEN_129"
-        set_id = get_or_create_screenshot_set(loc_id, display_type, headers)
-        clear_screenshot_set(set_id, headers)
-        files = [f for f in os.listdir(ipad_dir) if f.lower().endswith((".png", ".jpg"))]
-        files.sort()
-        for file in files:
-            print(f"Uploading screenshot: {file}")
-            upload_screenshot_to_apple(set_id, os.path.join(ipad_dir, file), headers)
-    else:
-        print(f"No iPad screenshots found at {ipad_dir}")
+            # clear set (delete all existing screenshots then wait until empty)
+            clear_screenshot_set(set_id)
+
+            # upload files in deterministic order if you care about ordering
+            files = [f for f in os.listdir(screenshots_dir) if f.lower().endswith((".png", ".jpg"))]
+            files.sort()
+            for file in files:
+                print(f"Uploading screenshot: '{file}'")
+                upload_screenshot_to_apple(set_id, os.path.join(screenshots_dir, file))
+        else:
+            print(f"No screenshots found in {screenshots_dir}")

@@ -123,4 +123,11 @@ def commit(edit_id: str, package_name: str, service: Resource, track: str, versi
         "releases": [{"versionCodes": [version_code], "status": "completed"}]
     }
     service.edits().tracks().update(editId=edit_id, track=track, packageName=package_name, body=track_body).execute()
-    service.edits().commit(editId=edit_id, packageName=package_name, changesNotSentForReview=True).execute()
+
+    try:
+        service.edits().commit(editId=edit_id, packageName=package_name, changesNotSentForReview=True).execute()
+    except Exception as e:
+        print("Failed to commit edits with changesNotSentForReview=True")
+        print(f"Error: {e}")
+        print("Try again without changesNotSentForReview")
+        service.edits().commit(editId=edit_id, packageName=package_name).execute()

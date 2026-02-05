@@ -31,13 +31,14 @@ if __name__ == "__main__":
     parser.add_argument("--key_id", help="Apple API key ID")
     parser.add_argument("--issuer_id", help="Apple issuer ID")
     parser.add_argument("--p8_folder", help="Apple .p8 directory path")
+    parser.add_argument("--macos_cert", help="macOS Apple '3rd Party Mac Developer Installer' certificate name")
+
     parser.add_argument("--iphone_dir", default="./metadata/en-US/images/iphoneScreenshots",
                         help="iOS iPhone screenshots dir (e.g., 6.5 inch)")
     parser.add_argument("--ipad_dir", default="./metadata/en-US/images/ipadScreenshots",
                         help="iOS iPad screenshots dir (e.g., 12.9 inch)")
     parser.add_argument("--macos_dir", default="./metadata/en-US/images/macbookScreenshots",
                         help="MacBook screenshots dir (e.g., 14 inch)")
-    parser.add_argument("--macos_cert", help="macOS Apple '3rd Party Mac Developer Installer' certificate name")
 
     # common options
     parser.add_argument("--locale", default="en-US", help="Locale for metadata")

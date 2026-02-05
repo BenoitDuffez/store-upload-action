@@ -27,6 +27,9 @@ inputs:
     description: 'Apple Issuer UUID'
     required: true
     default: '00000000-0000-0000-0000-000000000000'
+  macos_cert:
+    description: 'macOS certificate, e.g. 3rd Party Mac Developer Installer: TeamXXX (ABCDE67890)'
+    required: false
   google_service_account_path:
     description: 'Google Play service account path'
     required: true
@@ -59,7 +62,7 @@ runs:
         
         if [ -f "${{ inputs.apple_p8_folder }}/AuthKey_${{ inputs.apple_key_id }}.p8" ]; then
           echo "IOS_BUNDLE_ID=$(${{ github.action_path }}/get_bundle_id.awk ios/Runner.xcodeproj/project.pbxproj)" >>$GITHUB_ENV
-          #echo "MACOS_BUNDLE_ID=$(awk '/^PRODUCT_BUNDLE_IDENTIFIER =/{print $NF}' macos/Runner/Configs/AppInfo.xcconfig)" >>$GITHUB_ENV
+          echo "MACOS_BUNDLE_ID=$(awk '/^PRODUCT_BUNDLE_IDENTIFIER =/{print $NF}' macos/Runner/Configs/AppInfo.xcconfig)" >>$GITHUB_ENV
         fi
 
     - name: Run tests and generate goldens
@@ -103,6 +106,7 @@ runs:
           --track                 "${{ inputs.google_track }}" \
           --ios_bundle_id         "${{ env.ios_bundle_id }}" \
           --macos_bundle_id       "${{ env.macos_bundle_id }}" \
+          --macos_cert            "${{ inputs.macos_cert }}" \
           --key_id                "${{ inputs.apple_key_id }}" \
           --p8_folder             "${{ inputs.apple_p8_folder }}" \
           --issuer_id             "${{ inputs.apple_issuer_id }}"

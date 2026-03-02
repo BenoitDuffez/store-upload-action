@@ -149,6 +149,17 @@ def get_or_create_version(app_id: str, version: str, platform: str) -> str:
                 print(f"Apple Version already exists: {release['id']}")
                 return release["id"]
 
+        # Check if there is one PREPARE_FOR_SUBMISSION
+        for release in json["data"]:
+            if release["attributes"]["platform"] == platform \
+                    and release["attributes"]["appVersionState"] == "PREPARE_FOR_SUBMISSION":
+                print(f"Apple Version 'PREPARE_FOR_SUBMISSION' found: {release['id']}, rename '{release['attributes']['versionString']}' to '{version}'")
+                response = requests.patch(f"{API_BASE}/appStoreVersions/{release['id']}", headers=headers, data={
+                    "data": {"type": "appStoreVersions", "id": release["id"],
+                             "attributes": {"versionString": version}}})
+                response.raise_for_status()
+                return release["id"]
+
     # Create
     print(f"Creating Apple Version {version} for {app_id}")
     body = {

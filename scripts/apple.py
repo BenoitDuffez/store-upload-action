@@ -157,6 +157,7 @@ def get_or_create_version(app_id: str, version: str, platform: str) -> str:
                 response = requests.patch(f"{API_BASE}/appStoreVersions/{release['id']}", headers=headers, data={
                     "data": {"type": "appStoreVersions", "id": release["id"],
                              "attributes": {"versionString": version}}})
+                print(f"Result = {response.text}")
                 response.raise_for_status()
                 return release["id"]
 

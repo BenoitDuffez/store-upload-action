@@ -68,6 +68,7 @@ runs:
     - name: Run tests and generate goldens
       run: |
         cd "${{ github.workspace }}/${{ inputs.path }}"
+        dart run golden_screenshot:download_apple_fonts
         flutter test --update-goldens
 
     - name: Set up Python

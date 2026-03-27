@@ -142,7 +142,6 @@ def get_or_create_version(app_id: str, version: str, platform: str) -> str:
     response = requests.get(f"{API_BASE}/apps/{app_id}/appStoreVersions", headers=headers)
     response.raise_for_status()
     json = response.json()
-    print(f"get existing? {json}")
     if json["data"]:
         for release in json["data"]:
             if release["attributes"]["platform"] == platform and release["attributes"]["versionString"] == version:

@@ -37,6 +37,10 @@ inputs:
     description: 'Google Play track'
     required: true
     default: 'production'
+  google_internal_testing:
+    description: 'Also publish to internal testing track (no review required)'
+    required: false
+    default: 'false'
   path:
     description: 'Working directory (where pubspec.yaml is)'
     required: false
@@ -105,6 +109,7 @@ runs:
           --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \
           --track                 "${{ inputs.google_track }}" \
+          --internal_testing      "${{ inputs.google_internal_testing }}" \
           --ios_bundle_id         "${{ env.ios_bundle_id }}" \
           --macos_bundle_id       "${{ env.macos_bundle_id }}" \
           --macos_cert            "${{ inputs.macos_cert }}" \

@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 
-def publish_android(package_name: str, service_account_json: str, phone_dir: str, tablet_dir: str, track: str,
+def publish_android(package_name: str, service_account_json: str, phone_dir: str, tablet_dir: str, tracks: list[str],
                     locale: str, version_code: str) -> None:
     print("#########################################################")
     print("# Android                                               #")
@@ -21,7 +21,9 @@ def publish_android(package_name: str, service_account_json: str, phone_dir: str
 
     delete_all_screenshots(package_name, locale, service, edit_id)
     upload_screenshots(package_name, phone_dir, tablet_dir, locale, service, edit_id)
-    commit(edit_id, package_name, service, track, version_code)
+    
+    for track in tracks:
+        commit(edit_id, package_name, service, track, version_code)
 
     print("Android publication complete, check the Play Console if you need to submit the changes for review.")
 

@@ -19,7 +19,8 @@ if __name__ == "__main__":
     # android options
     parser.add_argument("--package_name", help="Android package name")
     parser.add_argument("--service_account_json", help="Google service account JSON")
-    parser.add_argument("--track", default="internal", help="Google Play track")
+    parser.add_argument("--track", default="production", help="Google Play track (comma-separated for multiple tracks)")
+    parser.add_argument("--internal_testing", action="store_true", help="Also publish to internal testing track")
     parser.add_argument("--phone_dir", default="./metadata/en-US/images/phoneScreenshots",
                         help="Android phone screenshots dir")
     parser.add_argument("--tablet_dir", default="./metadata/en-US/images/macbookScreenshots",
@@ -58,8 +59,13 @@ if __name__ == "__main__":
         print(f"Skipping Google Play publishing: no credentials ({args.service_account_json})")
 
     else:
+        # Handle multiple tracks
+        tracks = [t.strip() for t in args.track.split(",")]
+        if args.internal_testing and "internal" not in tracks:
+            tracks.append("internal")
+        
         try:
-            publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, args.track,
+            publish_android(args.package_name, args.service_account_json, args.phone_dir, args.tablet_dir, tracks,
                             args.locale, version_code)
         except Exception as e:
             print(f"Failed Google Play publishing: {e}")

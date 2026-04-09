@@ -109,7 +109,7 @@ runs:
           --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \
           --track                 "${{ inputs.google_track }}" \
-          --internal_testing      "${{ inputs.google_internal_testing }}" \
+          ${{ inputs.google_internal_testing == 'true' && '--internal_testing' || '' }} \
           --ios_bundle_id         "${{ env.ios_bundle_id }}" \
           --macos_bundle_id       "${{ env.macos_bundle_id }}" \
           --macos_cert            "${{ inputs.macos_cert }}" \

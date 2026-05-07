@@ -69,7 +69,10 @@ if __name__ == "__main__":
                             args.locale, version_code)
         except Exception as e:
             print(f"Failed Google Play publishing: {e}")
-            exceptions.append(e)
+            if "This edit has already been successfully committed, please create a new Edit." in str(e):
+                print("Ignoring this error success.")
+            else:
+                exceptions.append(e)
 
     # Apple
     p8 = f"{args.p8_folder}/AuthKey_{args.key_id}.p8"

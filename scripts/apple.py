@@ -153,9 +153,12 @@ def get_or_create_version(app_id: str, version: str, platform: str) -> str:
             if release["attributes"]["platform"] == platform \
                     and release["attributes"]["appVersionState"] == "PREPARE_FOR_SUBMISSION":
                 print(f"Apple Version 'PREPARE_FOR_SUBMISSION' found: {release['id']}, rename '{release['attributes']['versionString']}' to '{version}'")
-                response = requests.patch(f"{API_BASE}/appStoreVersions/{release['id']}", headers=headers, data={
+                patch = {
                     "data": {"type": "appStoreVersions", "id": release["id"],
-                             "attributes": {"versionString": version}}})
+                             "attributes": {"versionString": version}}}
+                url = f"{API_BASE}/appStoreVersions/{release['id']}"
+                print(f"Patching '{url}' with: '{patch}'")
+                response = requests.patch(url, headers=headers, data=patch)
                 print(f"Result = {response.text}")
                 response.raise_for_status()
                 return release["id"]

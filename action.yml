@@ -105,6 +105,8 @@ runs:
       run: |
         set -x
         cd "${{ github.workspace }}/${{ inputs.path }}"
+        flutter_env="${{ github.workspace }}/${{ inputs.path }}/ios/Flutter/flutter_export_environment.sh"
+        [ -f "$flutter_env" ] && source "$flutter_env"
         .venv/bin/python ${{ github.action_path }}/scripts/publish.py \
           --package_name          "${{ env.package_name }}" \
           --service_account_json  "${{ inputs.google_service_account_path }}" \
